@@ -210,7 +210,7 @@ void assign_parents(FileHandler* fh , int start, int end)
     assign_parents(fh, end, id);
   }
   else {
-      ROOT_ID = id-1;
+      ROOT_ID = id-2;
       return;
   }
 }
@@ -244,17 +244,8 @@ bool isInMBR(int *Mbr, int *P){
 // chosen ID for child of a leaf node = '-1'
 bool isLeaf(int *Node){
     int check = INT_MIN;
-    int start_index = 1+DIM;
-    for(int i = start_index; i++; i< (start_index+DIM)){
-        if (Node[i] != check)
-            return false;
-    }
-    start_index = 2+2*DIM;
+    int start_index = 2+2*DIM;
     for(int i=0; i< MAX_CAP; i++){
-        for(int j=0; j< 2*DIM; j++){
-            if (Node[j+start_index] != check)
-                return false;
-        }
         if (Node[2*DIM+start_index] != -1)
             return false;
         start_index = start_index + 1 + 2*DIM;
@@ -280,6 +271,7 @@ bool pointQuery(int *P, int NodeId, char *fileName, FileManager fm){
     if(!isLeaf(Node)){
         int startIndex = 2*DIM+2;
         for(int i=0; i<MAX_CAP; i++){
+            cout << Node[startIndex+2*DIM] << endl;
             if(isInMBR(&Node[startIndex], P)){
                 result = result || pointQuery(P, Node[startIndex+2*DIM], fileName, fm);
             }
