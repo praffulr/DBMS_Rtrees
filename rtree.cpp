@@ -143,9 +143,25 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
 
 void assign_parents(FileHandler* fh , int start, int end)
 {
-  int id = end;
+  cout << "level" <<" start: "<<start<<" "<<"end: "<<end<<endl;
+
   int num_nodes = end - start;
   int node_size = sizeof(int)*(2*DIM + 2 + MAX_CAP*(2*DIM + 1));
+  if(num_nodes==1)
+  {
+    ROOT_ID = start;
+    //Get entry with a given node id
+    int* child_node = get_entry(ROOT_ID, fh, node_size);
+    cout << "id: "<<child_node[0] << endl;
+    cout << "parent id: "<<child_node[1+2*DIM] << endl;
+    for(int i=0; i<MAX_CAP; i++)
+    {
+      cout <<"child_id #"<<i<<": "<<child_node[2+4*DIM+i*(1+2*DIM)]<<endl;
+    }
+    return;
+  }
+
+  int id = end;
 
   for(int i=start; i<end; i+= MAX_CAP)
   {
@@ -178,7 +194,7 @@ void assign_parents(FileHandler* fh , int start, int end)
       memcpy(&node[idx],&child_node[1+DIM],DIM*sizeof(int)); //2nd point
       idx+=DIM;
       //child id
-      node[idx] = i;
+      node[idx] = i+k;
       idx++;
     }
     //Update parent MBR
@@ -204,15 +220,8 @@ void assign_parents(FileHandler* fh , int start, int end)
     id++; //increment the id for the non-leaf node allottment
   }
 
-  if(num_nodes!=1)
-  {
-    cout << "level" <<" start: "<<end<<" "<<"id: "<<id<<endl;
-    assign_parents(fh, end, id);
-  }
-  else {
-      ROOT_ID = id-2;
-      return;
-  }
+  assign_parents(fh, end, id);
+
 }
 
 // point query
@@ -257,7 +266,7 @@ bool isLeaf(int *Node){
 
 bool pointQuery(int *P, int NodeId, char *fileName, FileManager fm){
     cout <<  "Point Query " << NodeId << endl;
-    int nodeSize = (((MAX_CAP+1)*(DIM+1)+1)*sizeof(int));
+    int nodeSize = (((MAX_CAP+1)*(2*DIM+1)+1)*sizeof(int));
     int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
     int pageIndex = (NodeId-1)/pageLimit;
     FileHandler fh = fm.OpenFile(fileName);
