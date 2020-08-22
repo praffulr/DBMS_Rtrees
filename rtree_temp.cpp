@@ -9,9 +9,6 @@ using namespace std;
 int MAX_CAP; //maximum number of children
 int DIM; //DIMensionality
 
-int ceil(int a, int b) {return (a/b) +(a%b >0);}
-int floor(int a, int b) {return (a/b);}
-
 char* get_entry(int node_id, FileHandler fh, int M)
 {
   PageHandler ph = fh.PageAt(node_id/M);
@@ -177,13 +174,13 @@ void assign_parents(FileHandler* fh ,int start, int end)
 // point query
 // ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool isInMBR(int *Mbr, int *P, int dimensionality){
-    for(int i=0; i< dimensionality; i++){
-        if (Mbr[i] < Mbr[i+dimensionality]){
-            if (!(Mbr[i]<= P[i] <= Mbr[i+dimensionality]))
+bool isInMBR(int *Mbr, int *P){
+    for(int i=0; i< DIM; i++){
+        if (Mbr[i] < Mbr[i+DIM]){
+            if (!(Mbr[i]<= P[i] <= Mbr[i+DIM]))
                 return false;
         }else{
-            if (!(Mbr[i+dimensionality]<= P[i] <= Mbr[i]))
+            if (!(Mbr[i+DIM]<= P[i] <= Mbr[i]))
                 return false;
         }
     }
@@ -198,53 +195,53 @@ bool isInMBR(int *Mbr, int *P, int dimensionality){
     // ID and MBR for each child (maxCap*(2*d+1))
 
 // chosen ID for child of a leaf node = '-1'
-bool isLeaf(int *Node, int dimensionality, int maxCap){
+bool isLeaf(int *Node){
     int check = INT_MIN;
-    int start_index = 1+dimensionality;
-    for(int i = start_index; i++; i< (start_index+dimensionality)){
+    int start_index = 1+DIM;
+    for(int i = start_index; i++; i< (start_index+DIM)){
         if (Node[i] != check)
             return false;
     }
-    start_index = 2+2*dimensionality;
-    for(int i=0; i< maxCap; i++){
-        for(int j=0; j< 2*dimensionality; j++){
+    start_index = 2+2*DIM;
+    for(int i=0; i< MAX_CAP; i++){
+        for(int j=0; j< 2*DIM; j++){
             if (Node[j+start_index] != check)
                 return false;
         }
-        if (Node[2*dimensionality+start_index] != -1)
+        if (Node[2*DIM+start_index] != -1)
             return false;
-        start_index = start_index + 1 + 2*dimensionality;
+        start_index = start_index + 1 + 2*DIM;
     }
     return true;
 }
 
 
 
-bool pointQuery(int *P, int NodeId, int dimensionality, char *fileName, int maxCap){
+bool pointQuery(int *P, int NodeId, char *fileName){
     FileManager fm;
-    int nodeSize = (((maxCap+1)*(dimensionality+1)+1)*sizeof(int));
+    int nodeSize = (((MAX_CAP+1)*(DIM+1)+1)*sizeof(int));
     int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
     int pageIndex = NodeId/pageLimit;
     FileHandler fh = fm.OpenFile(fileName);
     PageHandler ph = fh.PageAt(pageIndex);
     char *data = ph.GetData ();
-    int Node[((maxCap+1)*(dimensionality+1)+1)];
+    int Node[((MAX_CAP+1)*(DIM+1)+1)];
     int nodeIndex = (NodeId - pageLimit*pageIndex - 1)*nodeSize;
     memcpy(&Node, &data[nodeIndex], nodeSize);
     bool result = false;
-    if(!isLeaf(Node, dimensionality, maxCap)){
-        int startIndex = 2*dimensionality+2;
-        for(int i=0; i<maxCap; i++){
-            if(isInMBR(&Node[startIndex], P, dimensionality)){
-                result = result || pointQuery(P, Node[startIndex+2*dimensionality], dimensionality, fileName, maxCap);
+    if(!isLeaf(Node)){
+        int startIndex = 2*DIM+2;
+        for(int i=0; i<MAX_CAP; i++){
+            if(isInMBR(&Node[startIndex], P)){
+                result = result || pointQuery(P, Node[startIndex+2*DIM], fileName);
             }
-            startIndex = startIndex + 1 + 2*dimensionality;
+            startIndex = startIndex + 1 + 2*DIM;
             if (result)
                 return result;
         }
     }else{
         int startIndex = 1;
-        for(int i=0; i< dimensionality; i++){
+        for(int i=0; i< DIM; i++){
             if(P[i] != Node[i+startIndex])
                 return false;
         }

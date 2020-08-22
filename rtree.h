@@ -9,7 +9,9 @@ extern int DIM; //dimensionality
 
 int ceil(int a, int b) {return (a/b) +(a%b >0);}
 int floor(int a, int b) {return (a/b);}
-
+bool isInMBR(int *Mbr, int *P);
+bool isLeaf(int *Node);
+bool pointQuery(int *P, int NodeId, char *fileName);
 int* get_entry(int node_id, FileHandler* fh, int node_size);
 void update_MBR(int* node_data, int num_children);
 FileHandler str_bulkload(FileManager fm, char* input, int num_points);
