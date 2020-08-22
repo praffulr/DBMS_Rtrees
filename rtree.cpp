@@ -8,7 +8,7 @@ using namespace std;
 
 int MAX_CAP; //maximum number of children
 int DIM; //DIMensionality
-
+int ROOT_ID;
 
 
 int* get_entry(int node_id, FileHandler* fh, int node_size)
@@ -135,7 +135,9 @@ FileHandler str_bulkload(FileManager fm, char* input, int num_points)
   assign_parents(&out, 1, id);
 
   //FLUSH PAGE
-  cout << out.FlushPages() << endl;
+  PageHandler ph1 = out.FirstPage();
+  cout << "yay" << endl;
+  cout << fm.CloseFile(out) << endl;
   return out;
 }
 
@@ -207,7 +209,10 @@ void assign_parents(FileHandler* fh , int start, int end)
     cout << "level" <<" start: "<<end<<" "<<"id: "<<id<<endl;
     assign_parents(fh, end, id);
   }
-  else return;
+  else {
+      ROOT_ID = id-1;
+      return;
+  }
 }
 
 // point query
@@ -256,13 +261,14 @@ bool isLeaf(int *Node){
 
 
 
-bool pointQuery(int *P, int NodeId, char *fileName){
-    FileManager fm;
+bool pointQuery(int *P, int NodeId, char *fileName, FileManager fm){
+    cout <<  "Point Query " << NodeId << endl;
     int nodeSize = (((MAX_CAP+1)*(DIM+1)+1)*sizeof(int));
     int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
-    int pageIndex = NodeId/pageLimit;
+    int pageIndex = (NodeId-1)/pageLimit;
     FileHandler fh = fm.OpenFile(fileName);
     PageHandler ph = fh.PageAt(pageIndex);
+    cout << "access page " << pageIndex<< endl;
     char *data = ph.GetData ();
     int Node[((MAX_CAP+1)*(DIM+1)+1)];
     int nodeIndex = (NodeId - pageLimit*pageIndex - 1)*nodeSize;
@@ -272,7 +278,7 @@ bool pointQuery(int *P, int NodeId, char *fileName){
         int startIndex = 2*DIM+2;
         for(int i=0; i<MAX_CAP; i++){
             if(isInMBR(&Node[startIndex], P)){
-                result = result || pointQuery(P, Node[startIndex+2*DIM], fileName);
+                result = result || pointQuery(P, Node[startIndex+2*DIM], fileName, fm);
             }
             startIndex = startIndex + 1 + 2*DIM;
             if (result)
@@ -301,11 +307,18 @@ int main(int argc, char* argv[]){
   DIM = atoi(argv[3]);
 
 
-  string loadfile = "sortedData_2_10_100.txt"; //read from queries
+  string loadfile = "Testcases/TC_1/sortedData_2_10_100.txt"; //read from queries
+  string rtree_file = "rtree.txt";
   int loadsize = 100; //read from queries
 
   FileManager fm;
   str_bulkload(fm, &loadfile[0], loadsize);
-  cout <<"hi\n";
+  FileHandler fh;
+  fh = fm.OpenFile("rtree.txt");
+  PageHandler ph = fh.FirstPage();
+  cout << "success" << endl;
+  int point[] = {1890802246, 1488456800};
+  bool result = pointQuery(point, ROOT_ID, &rtree_file[0], fm);
+  cout <<result << endl;
   return 0;
 }
