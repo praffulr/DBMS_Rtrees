@@ -210,6 +210,87 @@ void assign_parents(FileHandler* fh , int start, int end)
   else return;
 }
 
+// point query
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool isInMBR(int *Mbr, int *P){
+    for(int i=0; i< DIM; i++){
+        if (Mbr[i] < Mbr[i+DIM]){
+            if (!(Mbr[i]<= P[i] <= Mbr[i+DIM]))
+                return false;
+        }else{
+            if (!(Mbr[i+DIM]<= P[i] <= Mbr[i]))
+                return false;
+        }
+    }
+    return true;
+}
+
+// size of each node = (maxCap+1)*(2*d+1) + 1
+
+    // an int for ID (1)
+    // MBR (2*d)
+    // parent ID (1)
+    // ID and MBR for each child (maxCap*(2*d+1))
+
+// chosen ID for child of a leaf node = '-1'
+bool isLeaf(int *Node){
+    int check = INT_MIN;
+    int start_index = 1+DIM;
+    for(int i = start_index; i++; i< (start_index+DIM)){
+        if (Node[i] != check)
+            return false;
+    }
+    start_index = 2+2*DIM;
+    for(int i=0; i< MAX_CAP; i++){
+        for(int j=0; j< 2*DIM; j++){
+            if (Node[j+start_index] != check)
+                return false;
+        }
+        if (Node[2*DIM+start_index] != -1)
+            return false;
+        start_index = start_index + 1 + 2*DIM;
+    }
+    return true;
+}
+
+
+
+bool pointQuery(int *P, int NodeId, char *fileName){
+    FileManager fm;
+    int nodeSize = (((MAX_CAP+1)*(DIM+1)+1)*sizeof(int));
+    int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
+    int pageIndex = NodeId/pageLimit;
+    FileHandler fh = fm.OpenFile(fileName);
+    PageHandler ph = fh.PageAt(pageIndex);
+    char *data = ph.GetData ();
+    int Node[((MAX_CAP+1)*(DIM+1)+1)];
+    int nodeIndex = (NodeId - pageLimit*pageIndex - 1)*nodeSize;
+    memcpy(&Node, &data[nodeIndex], nodeSize);
+    bool result = false;
+    if(!isLeaf(Node)){
+        int startIndex = 2*DIM+2;
+        for(int i=0; i<MAX_CAP; i++){
+            if(isInMBR(&Node[startIndex], P)){
+                result = result || pointQuery(P, Node[startIndex+2*DIM], fileName);
+            }
+            startIndex = startIndex + 1 + 2*DIM;
+            if (result)
+                return result;
+        }
+    }else{
+        int startIndex = 1;
+        for(int i=0; i< DIM; i++){
+            if(P[i] != Node[i+startIndex])
+                return false;
+        }
+        return true;
+    }
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int main(int argc, char* argv[]){
   if(argc != 5)
   {
