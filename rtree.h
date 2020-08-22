@@ -7,20 +7,10 @@ using namespace std;
 extern int MAX_CAP; //maximum number of children
 extern int DIM; //dimensionality
 
+int ceil(int a, int b) {return (a/b) +(a%b >0);}
+int floor(int a, int b) {return (a/b);}
 
-struct child_data{
-  int id;
-  int* mbr_1; //1st bound of all dimensions
-  int* mbr_2; //2nd bound of all dimensions
-};
-
-struct node{
-  int id;
-  int id_parent;
-  int* mbr_1; //1st bound of all dimensions
-  int* mbr_2; //2nd bound of all dimensions
-  child_data* children;
-};
-
+int* get_entry(int node_id, FileHandler* fh, int node_size);
+void update_MBR(int* node_data, int num_children);
 FileHandler str_bulkload(FileManager fm, char* input, int num_points);
 void assign_parents(FileHandler* fh ,int start, int end);
