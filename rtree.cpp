@@ -40,7 +40,7 @@ void update_MBR(int* node_data, int num_children)
   return;
 }
 
-FileHandler str_bulkload(FileManager fm, char* input, int num_points)
+FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
 {
   FileHandler in, out;
 
@@ -55,12 +55,12 @@ FileHandler str_bulkload(FileManager fm, char* input, int num_points)
   int num_pages = ceil(pieces, M);
   cout << "num_pages: "<<num_pages << endl;
 
-  in = fm.OpenFile(input);
+  in = fm->OpenFile(input);
   PageHandler ph = in.FirstPage();
   char* in_data = ph.GetData();
 
   cout <<"here1\n";
-  out = fm.CreateFile("rtree.txt");
+  out = fm->CreateFile("rtree.txt");
   cout <<"here2\n";
   for(int i=1; i<=num_pages; i++) //For each page
   {
@@ -137,7 +137,7 @@ FileHandler str_bulkload(FileManager fm, char* input, int num_points)
   //FLUSH PAGE
   PageHandler ph1 = out.FirstPage();
   cout << "yay" << endl;
-  cout << fm.CloseFile(out) << endl;
+  cout << fm->CloseFile(out) << endl;
   return out;
 }
 
@@ -220,12 +220,15 @@ void assign_parents(FileHandler* fh , int start, int end)
 
 bool isInMBR(int *Mbr, int *P){
     for(int i=0; i< DIM; i++){
-        if (Mbr[i] < Mbr[i+DIM]){
-            if (!(Mbr[i]<= P[i] <= Mbr[i+DIM]))
-                return false;
-        }else{
-            if (!(Mbr[i+DIM]<= P[i] <= Mbr[i]))
-                return false;
+        if(Mbr[i] != INT_MIN && Mbr[i+DIM] != INT_MIN)
+        {
+          if (Mbr[i] < Mbr[i+DIM]){
+              if (!(Mbr[i]<= P[i] <= Mbr[i+DIM]))
+                  return false;
+          }else{
+              if (!(Mbr[i+DIM]<= P[i] <= Mbr[i]))
+                  return false;
+          }
         }
     }
     return true;
@@ -312,7 +315,7 @@ int main(int argc, char* argv[]){
   int loadsize = 100; //read from queries
 
   FileManager fm;
-  str_bulkload(fm, &loadfile[0], loadsize);
+  str_bulkload(&fm, &loadfile[0], loadsize);
   FileHandler fh;
   fh = fm.OpenFile("rtree.txt");
   PageHandler ph = fh.FirstPage();
