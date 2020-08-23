@@ -58,7 +58,7 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
   in = fm->OpenFile(input);
   PageHandler ph = in.FirstPage();
   char* in_data = ph.GetData();
-
+  cout << ((int*)in_data)[0] << " " << ((int*)in_data)[1] << endl;
   cout <<"here1\n";
   out = fm->CreateFile("rtree.txt");
   cout <<"here2\n";
@@ -132,7 +132,9 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
   }
   cout << "end ID: "<<id<<endl;
   //Assign Parents
+  cout << "hi1" << endl;
   assign_parents(&out, 1, id);
+  cout << "hi2" << endl;
 
   //FLUSH PAGE
   PageHandler ph1 = out.FirstPage();
@@ -147,6 +149,7 @@ void assign_parents(FileHandler* fh , int start, int end)
 
   int num_nodes = end - start;
   int node_size = sizeof(int)*(2*DIM + 2 + MAX_CAP*(2*DIM + 1));
+  int M = floor(PAGE_CONTENT_SIZE, node_size);
   if(num_nodes==1)
   {
     ROOT_ID = start;
@@ -215,7 +218,8 @@ void assign_parents(FileHandler* fh , int start, int end)
         idx++;
       }
     }
-
+    if((id-1)%M == 0)
+        fh->NewPage();
     memcpy((char*)get_entry(id,fh, node_size),&node[0],node_size);
     id++; //increment the id for the non-leaf node allottment
   }
@@ -264,37 +268,41 @@ bool isLeaf(int *Node){
 
 
 
-bool pointQuery(int *P, int NodeId, char *fileName, FileManager fm){
-    cout <<  "Point Query " << NodeId << endl;
+bool pointQuery(int *P, int NodeId, FileHandler* fh){
+    // cout <<  "Point Query " << NodeId << endl;
     int nodeSize = (((MAX_CAP+1)*(2*DIM+1)+1)*sizeof(int));
     int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
     int pageIndex = (NodeId-1)/pageLimit;
-    FileHandler fh = fm.OpenFile(fileName);
-    PageHandler ph = fh.PageAt(pageIndex);
-    cout << "access page " << pageIndex<< endl;
+    PageHandler ph = fh->PageAt(pageIndex);
+    // cout << "access page " << pageIndex<< endl;
     char *data = ph.GetData ();
-    int Node[((MAX_CAP+1)*(DIM+1)+1)];
+    int Node[((MAX_CAP+1)*(2*DIM+1)+1)];
     int nodeIndex = (NodeId - pageLimit*pageIndex - 1)*nodeSize;
     memcpy(&Node, &data[nodeIndex], nodeSize);
     bool result = false;
     if(!isLeaf(Node)){
         int startIndex = 2*DIM+2;
         for(int i=0; i<MAX_CAP; i++){
-            cout << Node[startIndex+2*DIM] << endl;
+            // cout << Node[startIndex+2*DIM] << endl;
             if(isInMBR(&Node[startIndex], P)){
-                result = result || pointQuery(P, Node[startIndex+2*DIM], fileName, fm);
+                result = (result || pointQuery(P, Node[startIndex+2*DIM], fh));
             }
             startIndex = startIndex + 1 + 2*DIM;
             if (result)
                 return result;
         }
     }else{
-        int startIndex = 1;
-        for(int i=0; i< DIM; i++){
-            if(P[i] != Node[i+startIndex])
-                return false;
+        int startIndex = 2*DIM+2;
+        for(int j=0; j< MAX_CAP; j++){
+            for(int i=0; i< DIM; i++){
+                if(P[i] != Node[i+startIndex+DIM])
+                    break;
+                else if (i==DIM-1)
+                    return true;
+            }
+            startIndex = startIndex + 2*DIM + 1;
         }
-        return true;
+        return false;
     }
     return result;
 }
@@ -321,8 +329,8 @@ int main(int argc, char* argv[]){
   fh = fm.OpenFile("rtree.txt");
   PageHandler ph = fh.FirstPage();
   cout << "success" << endl;
-  int point[] = {1890802246, 1488456800};
-  bool result = pointQuery(point, ROOT_ID, &rtree_file[0], fm);
-  cout <<result << endl;
+  int point[] = {585167411, 2791691};
+  bool result = pointQuery(point, ROOT_ID, &fh);
+  cout <<"final result is "<< result << endl;
   return 0;
 }
