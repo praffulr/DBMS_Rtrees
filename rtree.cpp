@@ -69,11 +69,6 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
   char* in_data = ph_in.GetData();
   int ints_in_page = PAGE_CONTENT_SIZE/sizeof(int);
 
-  for(int i=0; i<DIM; i++)
-  {
-    cout << ((int*)in_data)[i] << " " ;
-  }
-  cout << endl;
 
   out = fm->CreateFile("rtree.txt");
 
@@ -178,14 +173,6 @@ void assign_parents(FileHandler* fh , int start, int end)
   if(num_nodes==1)
   {
     ROOT_ID = start;
-    //Get entry with a given node id
-    int* child_node = get_entry(ROOT_ID, fh, node_size);
-    cout << "id: "<<child_node[0] << endl;
-    cout << "parent id: "<<child_node[1+2*DIM] << endl;
-    for(int i=0; i<MAX_CAP; i++)
-    {
-      cout <<"child_id #"<<i<<": "<<child_node[2+4*DIM+i*(1+2*DIM)]<<endl;
-    }
     return;
   }
 
@@ -356,7 +343,7 @@ bool pointQuery(int *P, int NodeId, FileHandler* fh){
 int main(int argc, char* argv[]){
   if(argc != 5)
   {
-    cout <<"Incorrect format" << endl;
+    cout <<"Correct Format - ./rtree query.txt maxCap dimensionality output.txt" << endl;
     return 0;
   }
   char* queries_file_name = argv[1];
@@ -392,8 +379,8 @@ int main(int argc, char* argv[]){
 
     else if(!strcmp(token, "INSERT"))
     {
-      cout << "Skip INSERT" << endl;
-      //output_file << "INSERT" <<endl<<endl<<endl;
+      //cout << "Skip INSERT" << endl;
+      output_file << "INSERT" <<endl<<endl<<endl;
     }
     else if(!strcmp(token, "QUERY"))
     {
@@ -406,7 +393,7 @@ int main(int argc, char* argv[]){
       bool result = pointQuery(point, ROOT_ID, &fh);
       if(result) {output_file << "TRUE" <<endl<<endl<<endl;}
       else {output_file << "FALSE" <<endl<<endl<<endl;}
-      cout <<"final result is "<< result << endl;
+      //cout <<"final result is "<< result << endl;
     }
     getline(queries_file, query_line);
   }
