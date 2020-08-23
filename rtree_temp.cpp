@@ -247,14 +247,7 @@ bool isInMBR(int *Mbr, int *P){
     return true;
 }
 
-// size of each node = (maxCap+1)*(2*d+1) + 1
 
-    // an int for ID (1)
-    // MBR (2*d)
-    // parent ID (1)
-    // ID and MBR for each child (maxCap*(2*d+1))
-
-// chosen ID for child of a leaf node = '-1'
 bool isLeaf(int *Node){
     int check = INT_MIN;
     int start_index = 2+2*DIM;
@@ -305,6 +298,150 @@ bool pointQuery(int *P, int NodeId, FileHandler* fh){
         return false;
     }
     return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// insert
+
+
+int areaMBR(int *Mbr){
+    int area =0;
+    for(int i=0; i<DIM; i++){
+        area = area*(abs(Mbr[i]-Mbr[i+DIM]));
+    }
+    return area;
+}
+
+int areaChangeInMbr(int* Mbr, int* P){
+    int updatedMbr[2*DIM];
+    int initialArea = areaMBR(Mbr);
+    for(int i=0; i< DIM; i++){
+        if(Mbr[i] < Mbr[i+DIM]){
+            if(Mbr[i] <= P[i] <= Mbr[i+DIM]){
+                updatedMbr[i] = Mbr[i];
+                updatedMbr[i+DIM] = Mbr[i+DIM];
+                continue;
+            }
+            else{
+                if(P[i] < Mbr[i]){
+                    updatedMbr[i] = P[i];
+                    updatedMbr[i+DIM] = Mbr[i+DIM];
+                }else{
+                    updatedMbr[i] = Mbr[i];
+                    updatedMbr[i+DIM] = P[i];
+                }
+            }
+        }else{
+            if(Mbr[i+DIM] <= P[i] <= Mbr[i]){
+                updatedMbr[i] = Mbr[i];
+                updatedMbr[i+DIM] = Mbr[i+DIM];
+                continue;
+            }
+            else{
+                if(P[i] < Mbr[i+DIM]){
+                    updatedMbr[i+DIM] = P[i];
+                    updatedMbr[i] = Mbr[i];
+                }else{
+                    updatedMbr[i+DIM] = Mbr[i+DIM];
+                    updatedMbr[i] = P[i];
+                }
+            }
+        }
+    }
+    int finalArea = areaMBR(updatedMbr);
+    return finalArea-initialArea;
+}
+
+bool updateMbr(int* Mbr, int* P){
+    int result = false;
+    for(int i=0; i< DIM; i++){
+        if(Mbr[i] < Mbr[i+DIM]){
+            if(Mbr[i] <= P[i] <= Mbr[i+DIM])
+                continue;
+            else{
+                if(P[i] < Mbr[i]){
+                    Mbr[i] = P[i];
+                }else{
+                    Mbr[i+DIM] = P[i];
+                }
+            }
+            result = true;
+        }else{
+            if(Mbr[i+DIM] <= P[i] <= Mbr[i])
+                continue;
+            else{
+                if(P[i] < Mbr[i+DIM]){
+                    Mbr[i+DIM] = P[i];
+                }else{
+                    Mbr[i] = P[i];
+                }
+            }
+            result = true;
+        }
+    }
+    return result;
+}
+
+int recursiveMbrUpdate(int* Node, )
+
+// size of each node = (maxCap+1)*(2*d+1) + 1
+
+// an int for ID (1)
+// MBR (2*d)
+// parent ID (1)
+// ID and MBR for each child (maxCap*(2*d+1))
+
+// chosen ID for child of a leaf node = '-1'
+
+int numChildren(int* Node){
+    int startIndex = 2*DIM + 2;
+    int children = 0;
+    for(int i=0; i< MAX_CAP; i++){
+        if(Node[startIndex+2*DIM] != -1)
+            count++;
+        startIndex = startIndex + 2*DIM + 1;
+    }
+    return children;
+}
+
+int insert(int* P, int rootID, FileHandler* fh){
+    int nodeSize = (((MAX_CAP+1)*(2*DIM+1)+1)*sizeof(int));
+    int pageLimit = PAGE_CONTENT_SIZE/nodeSize;
+    int pageIndex = (rootID-1)/pageLimit;
+    PageHandler ph = fh->PageAt(pageIndex);
+    int m = (MAX_CAP/2) + (MAX_CAP%2!=0);
+    char *data = ph.GetData ();
+    int rootNode[((MAX_CAP+1)*(2*DIM+1)+1)];
+    int nodeIndex = (rootID - pageLimit*pageIndex - 1)*nodeSize;
+    memcpy(&rootNode, &data[nodeIndex], nodeSize);
+    int startIndex = 2*DIM+2;
+    int minAreaId = INT_MIN;
+    int minArea = INT_MAX;
+    int minChangeInArea = INT_MAX;
+    if(!isLeaf(Node)){
+        for(int i=0; i< MAX_CAP; i++){
+            int tempAreaChange = areaChangeInMbr(&Node[startIndex], P);
+            if (tempAreaChange < minChangeInArea){
+                minChangeInArea = tempAreaChange;
+                minAreaId = Node[startIndex+2*DIM];
+                minArea = areaMBR(&Node[startIndex]);
+            }else if(tempAreaChange == minChangeInArea){
+                int tempArea = areaMBR(&Node[startIndex]);
+                if(tempArea<minArea){
+                    minAreaId = Node[startIndex+2*DIM];
+                    minArea = areaMBR(&Node[startIndex]);
+                }
+            }
+            startIndex = startIndex + 2*DIM + 1;
+        }
+        return insert(P, minAreaId, fh);
+    }else{
+        if(numChildren(Node) < MAX_CAP){
+
+        }
+    }
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
