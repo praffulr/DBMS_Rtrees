@@ -3,6 +3,7 @@
 #include<cstring>
 #include<climits>
 #include<cstdlib>
+#include<fstream>
 
 using namespace std;
 
@@ -14,7 +15,16 @@ int ROOT_ID;
 int* get_entry(int node_id, FileHandler* fh, int node_size)
 {
   int M = floor(PAGE_CONTENT_SIZE,node_size);
-  PageHandler ph = fh->PageAt((node_id-1)/M);
+  PageHandler ph;
+  try{
+    ph = fh->PageAt((node_id-1)/M);
+  }
+  catch(NoBufferSpaceException e)
+  {
+    fh->FlushPages();
+    ph = fh->PageAt((node_id-1)/M);
+  }
+  //fh->UnpinPage(ph.GetPageNum());
   return (int*)((ph.GetData() + node_size*((node_id-1)%M)));
 }
 
@@ -53,24 +63,35 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
   cout <<"M: "<<M<<endl;
 
   int num_pages = ceil(pieces, M);
-  cout << "num_pages: "<<num_pages << endl;
 
   in = fm->OpenFile(input);
-  PageHandler ph = in.FirstPage();
-  char* in_data = ph.GetData();
-  cout << ((int*)in_data)[0] << " " << ((int*)in_data)[1] << endl;
-  cout <<"here1\n";
+  PageHandler ph_in = in.FirstPage();
+  char* in_data = ph_in.GetData();
+  int ints_in_page = PAGE_CONTENT_SIZE/sizeof(int);
+
+  for(int i=0; i<DIM; i++)
+  {
+    cout << ((int*)in_data)[i] << " " ;
+  }
+  cout << endl;
+
   out = fm->CreateFile("rtree.txt");
-  cout <<"here2\n";
+
   for(int i=1; i<=num_pages; i++) //For each page
   {
     // Create a new page
-    PageHandler ph = out.NewPage ();
-    char* out_data = ph.GetData ();
-    cout << "hi1" << endl;
+    PageHandler ph_out;
+    try{
+      ph_out = out.NewPage ();
+    }
+    catch(NoBufferSpaceException e)
+    {
+      out.FlushPages();
+      ph_out = out.NewPage ();
+    }
+    char* out_data = ph_out.GetData ();
     for(int j=0; j<M&&num_points!=0; j++) //For each node
     {
-      cout << "hi2" << endl;
       int node[node_size/sizeof(int)];
       int idx = 0;
       //Assigning node ID
@@ -94,12 +115,22 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
         {
           int iter = ctr+1;
           int buf;
+
+          if(ints_in_page == 0)
+          {
+            in.UnpinPage(ph_in.GetPageNum());
+            ph_in = in.NextPage(ph_in.GetPageNum());
+            in_data = ph_in.GetData();
+            ints_in_page = PAGE_CONTENT_SIZE/sizeof(int);
+          }
           memcpy(&buf, in_data, sizeof(int));
+          in_data+=sizeof(int);
+          ints_in_page--;
+
           if(node[iter]>buf) node[iter]=buf;
           if(node[iter+DIM]<buf) node[iter+DIM]=buf;
 
           memcpy(&(node[idx]), &buf, sizeof(int));
-          in_data+=sizeof(int);
 
           idx++;
         }
@@ -120,7 +151,7 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
           idx++;
         }
       }
-      cout << "index: "<<idx<<" num_points: "<<num_points << endl;
+//cout << "index: "<<idx<<" num_points: "<<num_points << endl;
 
       memcpy(out_data+j*node_size, &node[0], node_size);
 
@@ -130,23 +161,17 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
 
 
   }
-  cout << "end ID: "<<id<<endl;
   //Assign Parents
-  cout << "hi1" << endl;
   assign_parents(&out, 1, id);
-  cout << "hi2" << endl;
 
   //FLUSH PAGE
-  PageHandler ph1 = out.FirstPage();
-  cout << "yay" << endl;
-  cout << fm->CloseFile(out) << endl;
+  cout << "Flush Pages Bulkload result: "<<out.FlushPages() << endl;
   return out;
 }
 
 void assign_parents(FileHandler* fh , int start, int end)
 {
-  cout << "level" <<" start: "<<start<<" "<<"end: "<<end<<endl;
-
+  //cout << "level" <<" start: "<<start<<" "<<"end: "<<end<<endl;
   int num_nodes = end - start;
   int node_size = sizeof(int)*(2*DIM + 2 + MAX_CAP*(2*DIM + 1));
   int M = floor(PAGE_CONTENT_SIZE, node_size);
@@ -188,7 +213,7 @@ void assign_parents(FileHandler* fh , int start, int end)
     {
       //Get entry with a given node id
       int* child_node = get_entry(i+k, fh, node_size);
-      cout << "i: "<<*child_node<<endl;
+    //  cout << "i: "<<*child_node<<endl;
       //Assign parent ID for the child
       memcpy(&child_node[1+2*DIM] ,&node[0], sizeof(int));
       //MBR
@@ -218,8 +243,19 @@ void assign_parents(FileHandler* fh , int start, int end)
         idx++;
       }
     }
+
     if((id-1)%M == 0)
+    {
+      try{
         fh->NewPage();
+      }
+      catch(NoBufferSpaceException e)
+      {
+        fh->FlushPages();
+        fh->NewPage();
+      }
+    }
+
     memcpy((char*)get_entry(id,fh, node_size),&node[0],node_size);
     id++; //increment the id for the non-leaf node allottment
   }
@@ -236,10 +272,10 @@ bool isInMBR(int *Mbr, int *P){
         if(Mbr[i] != INT_MIN && Mbr[i+DIM] != INT_MIN)
         {
           if (Mbr[i] < Mbr[i+DIM]){
-              if (!(Mbr[i]<= P[i] <= Mbr[i+DIM]))
+              if (!(Mbr[i]<= P[i] && P[i] <= Mbr[i+DIM]))
                   return false;
           }else{
-              if (!(Mbr[i+DIM]<= P[i] <= Mbr[i]))
+              if (!(Mbr[i+DIM]<= P[i] &&  P[i] <= Mbr[i]))
                   return false;
           }
         }
@@ -256,7 +292,6 @@ bool isInMBR(int *Mbr, int *P){
 
 // chosen ID for child of a leaf node = '-1'
 bool isLeaf(int *Node){
-    int check = INT_MIN;
     int start_index = 2+2*DIM;
     for(int i=0; i< MAX_CAP; i++){
         if (Node[2*DIM+start_index] != -1)
@@ -283,13 +318,18 @@ bool pointQuery(int *P, int NodeId, FileHandler* fh){
     if(!isLeaf(Node)){
         int startIndex = 2*DIM+2;
         for(int i=0; i<MAX_CAP; i++){
-            // cout << Node[startIndex+2*DIM] << endl;
+          if(Node[startIndex+2*DIM] == -1) return result;
+            // cout << "children_id: "<<Node[startIndex+2*DIM] << endl;
             if(isInMBR(&Node[startIndex], P)){
                 result = (result || pointQuery(P, Node[startIndex+2*DIM], fh));
             }
             startIndex = startIndex + 1 + 2*DIM;
             if (result)
-                return result;
+            {
+              fh->UnpinPage(ph.GetPageNum());
+              return result;
+            }
+
         }
     }else{
         int startIndex = 2*DIM+2;
@@ -298,12 +338,16 @@ bool pointQuery(int *P, int NodeId, FileHandler* fh){
                 if(P[i] != Node[i+startIndex+DIM])
                     break;
                 else if (i==DIM-1)
-                    return true;
+                {
+                  return true;
+                }
             }
             startIndex = startIndex + 2*DIM + 1;
         }
+        fh->UnpinPage(ph.GetPageNum());
         return false;
     }
+    fh->UnpinPage(ph.GetPageNum());
     return result;
 }
 
@@ -315,22 +359,63 @@ int main(int argc, char* argv[]){
     cout <<"Incorrect format" << endl;
     return 0;
   }
+  char* queries_file_name = argv[1];
   MAX_CAP = atoi(argv[2]);
   DIM = atoi(argv[3]);
+  char* output_file_name = argv[4];
 
-
-  string loadfile = "Testcases/TC_1/sortedData_2_10_100.txt"; //read from queries
-  string rtree_file = "rtree.txt";
-  int loadsize = 100; //read from queries
+  ifstream queries_file;
+  string query_line;
+  queries_file.open(queries_file_name);
+  ofstream output_file;
+  string result_line;
+  output_file.open(output_file_name);
 
   FileManager fm;
-  str_bulkload(&fm, &loadfile[0], loadsize);
   FileHandler fh;
-  fh = fm.OpenFile("rtree.txt");
-  PageHandler ph = fh.FirstPage();
-  cout << "success" << endl;
-  int point[] = {585167411, 2791691};
-  bool result = pointQuery(point, ROOT_ID, &fh);
-  cout <<"final result is "<< result << endl;
+  string rtree_file = "rtree.txt";
+  getline(queries_file, query_line);
+  int num_queries = 0;
+  while(query_line.length() != 0 && !query_line.empty())
+  {
+    num_queries++;
+    char *token = strtok(&query_line[0], " ");
+
+    if(!strcmp(token, "BULKLOAD"))
+    {
+      //BULKLOAD function
+      string loadfile = strtok(NULL, " ");
+      int loadsize = atoi(strtok(NULL, " "));
+      fh = str_bulkload(&fm, &loadfile[0], loadsize);
+      output_file << "BULKLOAD"<<endl<<endl<<endl;
+    }
+
+    else if(!strcmp(token, "INSERT"))
+    {
+      cout << "Skip INSERT" << endl;
+      //output_file << "INSERT" <<endl<<endl<<endl;
+    }
+    else if(!strcmp(token, "QUERY"))
+    {
+      //QUERY
+      int point[DIM];
+      for(int i=0; i<DIM; i++)
+      {
+        point[i] = atoi(strtok(NULL, " "));
+      }
+      bool result = pointQuery(point, ROOT_ID, &fh);
+      if(result) {output_file << "TRUE" <<endl<<endl<<endl;}
+      else {output_file << "FALSE" <<endl<<endl<<endl;}
+      cout <<"final result is "<< result << endl;
+    }
+    getline(queries_file, query_line);
+  }
+
+  cout <<"num_queries: "<<num_queries << endl;
+
+  queries_file.close();
+  output_file.close();
+  //int point[] = {585167411, 2791691};
+
   return 0;
 }
