@@ -69,7 +69,8 @@ FileHandler str_bulkload(FileManager* fm, char* input, int num_points)
   int ints_in_page = PAGE_CONTENT_SIZE/sizeof(int);
 
 
-  out = fm->CreateFile("rtree.txt");
+  try{out = fm->CreateFile("rtree.txt");}
+  catch(InvalidFileException e){fm->DestroyFile("rtree.txt"); out = fm->CreateFile("rtree.txt");}
 
   for(int i=1; i<=num_pages; i++) //For each page
   {
